@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>網易雲音樂解析</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.css">
+    <link rel="stylesheet" href="/s/app.min.css" />
+    <script type="text/javascript">
+        function getParamsFromURL() {
+            const musicId = "{{ music_id }}";
+            const bitRate = "{{ bitrate }}";
+            const type = "{{ type }}";
+            if (musicId.length) {
+                document.getElementById("sign-url").value = musicId;
+                document.getElementById("sign-url").dispatchEvent(new Event("input"))
+                console.log("Music ID: " + musicId)
+            }
+            if (bitRate.length){
+                document.getElementById(bitRate).click();
+            }
+            if (type.length) {
+                document.getElementById(type).click();
+            }
+            if (document.getElementById("sign-url").value.length) {
+                document.querySelector("#sign > div.ts.fluid.action.circular.input > button").click();
+            }
+        }
+    </script>
+</head>
+
+<body class="nojs" data-sitekey="{{ config.recaptcha.sitekey }}" data-verified="{{ 1 if verified else 0 }}">
+    <div id="wrapper">
+        <div class="ts fluid big heading slate">
+            <div class="ts narrow container">
+                <span class="header">網易雲音樂解析</span>
+                <span class="description">與朋友分享音樂！</span>
+            </div>
+        </div>
+        <div class="ts narrow container" id="app">
+            <form method="POST" action="/sign" id="sign" class="ts form">
+                <div class="ts fluid action circular input">
+                    <input required id="sign-url" placeholder="音樂網址或 ID" v-model="src_url" @input="onInput">
+                    <!--
+                    <select class="ts basic dropdown" v-model="rate">
+                        <option name="sign-rate" id="128" value="128000">普通音質 (128 kbps)</option>
+                        <option name="sign-rate" id="192" value="192000">高音質 (192 kbps)</option>
+                        <option selected name="sign-rate" id="320" value="320000">極高音質 (320 kbps)</option>
+                    </select>
+                    -->
+                    <div class="ts floating dropdown button" id="rate">
+                        <span class="text" id="rateText">音質</span>
+                        <div class="menu">
+                            <div class="item" name="sign-rate" id="128" data-rate="128000" v-on:click="selRate">
+                                <span class="text" data-rate="128000">128 kbps</span>
+                                <span class="description" data-rate="128000">普通音質</span>
+                            </div>
+                            <div class="item" name="sign-rate" id="192" data-rate="192000" v-on:click="selRate">
+                                <span class="text" data-rate="192000">192 kbps</span>
+                                <span class="description" data-rate="192000">高音質</span>
+                            </div>
+                            <div class="item" name="sign-rate" id="320" data-rate="320000" v-on:click="selRate">
+                                <span class="text" data-rate="320000">320 kbps</span>
+                                <span class="description" data-rate="320000">極高音質</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ts floating dropdown button" id="type">
+                        <span class="text" id="typeText">{% raw %}{{{song: "歌曲", songlist: "歌單"}[type]}}{% endraw %}</span>
+                        <div class="menu">
+                            <div class="item" name="sign-type" id="song" data-type="song" v-on:click="selType">
+                                <span class="text" data-type="song">歌曲</span>
+                            </div>
+                            <div class="item" name="sign-type" id="songlist" data-type="songlist" v-on:click="selType">
+                                <span class="text" data-type="songlist">歌單</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="ts primary button" v-on:click="sign">解析</button>
+                </div>
+                <br>
+
+                <div class="ts separated buttons" id="buttons">
+                </div>
+
+
+                <div v-if="error && !url && !songlist.length" v-cloak>
+                    <div class="ts negative message"><b>錯誤: </b><span v-text="error">{{ error }}</span></div><br><br>
+                </div>
+
+                <div v-bind:class="{ hide: verified }" v-cloak>
+                    <div class="ts field">
+                        <label>驗證碼</label>
+                        <div id="recaptcha"></div>
+                        <div class="js-hide ts warning message">請開啟 JavaScript 並允許 reCAPTCHA 載入。</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="nojs-hide js-hide vue-show-block" v-show="type=='song' && url">
+                        <h5 for="generated-url">歌曲網址</h5>
+                        <div class="ts fluid action circular input">
+                            <input readonly id="generated-url" class="form-control" v-model="url" v-on:click="sel">
+                            <button id="copy" class="ts button" v-show="url" data-clipboard-target="#generated-url" style="display: none" v-cloak>複製</button>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="nojs-hide js-hide vue-show-block" v-show="type=='song' && playerUrl">
+                        <h5 for="player-url">播放器網址</h5>
+                        <div class="ts fluid action circular input">
+                            <input readonly id="player-url" class="form-control" v-model="playerUrl" v-on:click="sel">
+                            <button id="copy2" class="ts button" v-show="playerUrl" data-clipboard-target="#player-url" style="display: none" v-cloak>複製</button>
+                        </div>
+                    </div>
+                    <br>
+                    <div class="nojs-hide js-hide vue-show-block" v-show="url || songlist.length > 0">
+                        <h5 for="generated-table">歌曲資訊</h5>
+                        <div id="cplayer"></div>
+                    </div>
+                    <br>
+                    <div class="nojs-hide js-hide vue-show-block" id="playlist" v-show="songlist.length > 0">
+                        <h5 for="generated-table">歌單選擇器</h5>
+                        <table class="ts very basic collapsing celled table" id="playlistTable">
+                            <thead>
+                                <tr>
+                                    <th>歌曲</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(i, index) in songlist" :key="i.id">
+                                    <td>
+                                        <h6 class="ts image header">
+                                            <a :href="'https://music.163.com/#/album?id=' + i.album.id" class="ts link mini rounded image">
+                                                <img class="ts mini rounded image" :src="i.album.picUrl">
+                                            </a>
+                                            <div class="content">
+                                                <a :href="'https://music.163.com/#/m/song?id=' + i.id">{% raw %}{{ i.name }}{% endraw %}</a>
+                                                <div class="sub header">
+                                                    <a v-for="(j, index) in i.artist" :href="'https://music.163.com/#/m/artist?id=' + j.id" >{% raw %}{{j.name}}{% endraw %}</a>
+                                                </div>
+                                            </div>
+                                        </h6>
+                                    </td>
+                                    <td>
+                                        <button v-bind:data-songid="i.id" v-on:click="addSong">
+                                            <i class="large plus square outline icon" v-bind:data-songid="i.id"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <br>
+                </div>
+            </form>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/7.21.1/sweetalert2.all.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/tocas-ui/2.3.3/tocas.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.16/vue.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.16/clipboard.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/MoePlayer/cPlayer/dist/cplayer.js"></script>
+        <script src="/s/app.min.js"></script>
+        <footer class="ts fluid slate">
+            <div class="ts narrow container ">
+                <span class="description">Powered By: <a href="https://rextw.com">Rex</a>, <a href="https://gnehs.net/">Gnehs</a>, <a href="https://jixun.moe/">Jixun</a></span>
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>
