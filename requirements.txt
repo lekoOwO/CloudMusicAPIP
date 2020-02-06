@@ -1,6 +1,6 @@
-Flask==1.0
-pycryptodome==3.6.6
-requests==2.20.0
-PyYAML==5.1
-redis==2.10.5
+Flask
+pycryptodome
+requests
+PyYAML
+redis
 ipaddress

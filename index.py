@@ -18,7 +18,7 @@ import random
 import socket
 
 # Load and parse config file
-config = yaml.load(file('config.yaml', 'r'))
+config = yaml.load(open('config.yaml', 'r'), Loader=yaml.FullLoader)
 encrypt = config['encrypt']
 
 app = Flask(__name__, static_url_path='/static')
@@ -173,9 +173,9 @@ headers = {
 
 def sign_request(songId, rate):
   h = SHA256.new()
-  h.update(str(songId))
-  h.update(str(rate))
-  h.update(config["sign_salt"])
+  h.update(str(songId).encode())
+  h.update(str(rate).encode())
+  h.update(config["sign_salt"].encode())
   return h.hexdigest()
 
 def is_verified(session):
@@ -209,7 +209,7 @@ def static_route(path):
 @app.route("/sign/<int:songId>/<int:rate>", methods=['POST'])
 def generate_sign(songId, rate):
   if not is_verified(session):
-    # Check Google Auth
+    # 首先检查谷歌验证
     if 'g-recaptcha-response' not in request.form \
       or not req_recaptcha(
         request.form['g-recaptcha-response'],
@@ -220,7 +220,7 @@ def generate_sign(songId, rate):
 
     set_verified(session)
 
-  # Request song info and sign
+  # 请求歌曲信息, 然后签个名
   decrease_verified(session)
   song = req_netease_detail(songId)
   if song is None:
@@ -244,12 +244,13 @@ def generate_sign(songId, rate):
 @app.route("/signList/<int:listId>/<int:rate>", methods=['POST'])
 def generate_sign_list(listId, rate):
   if not is_verified(session):
-    # Check Google Auth
+    # 首先检查谷歌验证
     if 'g-recaptcha-response' not in request.form \
       or not req_recaptcha(
         request.form['g-recaptcha-response'],
         request.headers[config['ip_header']] if config['ip_header'] else request.remote_addr
       ):
+      #
       return jsonify({"verified": is_verified(session), "errno": 2})
 
     set_verified(session)

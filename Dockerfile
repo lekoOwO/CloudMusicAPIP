@@ -1,4 +1,4 @@
-FROM python:2-alpine
+FROM python:3-alpine
 
 EXPOSE 5000
 COPY . /cm
